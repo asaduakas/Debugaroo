@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Dapper;
 
 namespace Debugaroo.Controllers;
 
@@ -18,14 +17,35 @@ public class AccountController : ControllerBase
     {
         return _dapper.LoadDataSingle<DateTime>("SELECT GETDATE()");
     }
-    
-    [HttpGet("GetUsers")]
-    public string[] GetUsers()
+
+    [HttpGet("GetAccounts")]
+    public IEnumerable<Account> GetAccounts()
     {
-        string[] responseArray = new string[] {
-            "Ticket 1",
-            "Ticket 2"
-        };
-        return responseArray;
+        string sql = @"
+            SELECT [AccountId],
+                [UserName],
+                [Email],
+                [IsAdmin],
+                [IsProjectManager],
+                [IsTeamLeader] 
+            FROM UserData.Account";
+        IEnumerable<Account> accounts = _dapper.LoadData<Account>(sql);
+        return accounts;   
+    }
+
+    [HttpGet("GetSingleAccount/{userId}")]
+    public Account GetSingleAccount(int userId)
+    {
+        string sql = @"
+            SELECT [AccountId],
+                [UserName],
+                [Email],
+                [IsAdmin],
+                [IsProjectManager],
+                [IsTeamLeader] 
+            FROM UserData.Account
+                WHERE AccountId = " + userId.ToString();
+        Account account = _dapper.LoadDataSingle<Account>(sql);
+        return account;  
     }
 }
