@@ -1,4 +1,4 @@
-namespace Debugaroo
+namespace Debugaroo.Models
 {
     public partial class Tickets
     {

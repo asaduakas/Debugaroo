@@ -1,4 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Debugaroo.Data;
+using Debugaroo.Dtos;
+using Debugaroo.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 namespace Debugaroo.Controllers;
 
@@ -33,7 +37,7 @@ public class AccountController : ControllerBase
         return accounts;   
     }
 
-    [HttpGet("GetSingleAccount/{userId}")]
+    [HttpGet("GetSingleAccount/{accountId}")]
     public Account GetSingleAccount(int accountId)
     {
         string sql = @"
@@ -71,7 +75,7 @@ public class AccountController : ControllerBase
     }
 
     [HttpPost("AddAccount")]
-    public IActionResult AddAccount(Account account)
+    public IActionResult AddAccount(AccountToAddDto account)
     {
         string sql = @"
             INSERT INTO UserData.Account(
@@ -95,5 +99,21 @@ public class AccountController : ControllerBase
             return Ok();
         }
         throw new Exception("Failed to add account");
+    }
+
+    [HttpDelete("DeleteUser/{accountId}")]
+    public IActionResult DeleteAccount(int accountId)
+    {
+        string sql = @"
+        DELETE FROM UserData.Account 
+            WHERE AccountId = " +  accountId.ToString();
+
+        Console.WriteLine(sql);
+
+        if (_dapper.ExecuteSql(sql))
+        {
+            return Ok();
+        }
+        throw new Exception("Failed to delete account");
     }
 }

@@ -1,8 +1,7 @@
-namespace Debugaroo.Models
+namespace Debugaroo.Dtos
 {
-    public partial class Account
+    public partial class AccountToAddDto
     {
-        public int AccountId { get; set; }
         public string Username { get; set; } = "";
         public string Email { get; set; } = "";
         public bool IsAdmin { get; set; } 

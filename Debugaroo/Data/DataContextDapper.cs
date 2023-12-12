@@ -2,7 +2,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
 
-namespace Debugaroo
+namespace Debugaroo.Data
 {
     class DataContextDapper
     {
