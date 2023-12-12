@@ -23,7 +23,7 @@ public class AccountController : ControllerBase
     {
         string sql = @"
             SELECT [AccountId],
-                [UserName],
+                [Username],
                 [Email],
                 [IsAdmin],
                 [IsProjectManager],
@@ -34,18 +34,66 @@ public class AccountController : ControllerBase
     }
 
     [HttpGet("GetSingleAccount/{userId}")]
-    public Account GetSingleAccount(int userId)
+    public Account GetSingleAccount(int accountId)
     {
         string sql = @"
             SELECT [AccountId],
-                [UserName],
+                   [Usename],
+                   [Email],
+                   [IsAdmin],
+                   [IsProjectManager],
+                   [IsTeamLeader] 
+            FROM UserData.Account
+                WHERE AccountId = " + accountId;
+        Account account = _dapper.LoadDataSingle<Account>(sql);
+        return account;  
+    }
+
+    [HttpPut("EditAccount")]
+    public IActionResult EditAccount(Account account)
+    {
+        string sql = @"
+        UPDATE UserData.Account
+            SET [Username] = '" + account.Username + 
+                "',[Email] = '" + account.Email + 
+                "',[IsAdmin] = '" + account.IsAdmin +
+                "',[IsProjectManager] = '" + account.IsProjectManager +
+                "',[IsTeamLeader] = '" + account.IsTeamLeader +
+                "' WHERE AccountId = " + account.AccountId;
+
+                Console.WriteLine(sql);
+
+                if (_dapper.ExecuteSql(sql))
+                {
+                    return Ok();
+                }
+                throw new Exception("Failed to update account");
+    }
+
+    [HttpPost("AddAccount")]
+    public IActionResult AddAccount(Account account)
+    {
+        string sql = @"
+            INSERT INTO UserData.Account(
+                [Username],
                 [Email],
                 [IsAdmin],
                 [IsProjectManager],
-                [IsTeamLeader] 
-            FROM UserData.Account
-                WHERE AccountId = " + userId.ToString();
-        Account account = _dapper.LoadDataSingle<Account>(sql);
-        return account;  
+                [IsTeamLeader]
+            ) VALUES (" +
+                "'" + account.Username + 
+                "', '" + account.Email + 
+                "', '" + account.IsAdmin +
+                "', '" + account.IsProjectManager +
+                "', '" + account.IsTeamLeader +
+            "')";
+
+        Console.WriteLine(sql);
+
+        if (_dapper.ExecuteSql(sql))
+        {
+            return Ok();
+        }
+        throw new Exception("Failed to add account");
     }
 }
