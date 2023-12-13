@@ -2,7 +2,6 @@
 using Debugaroo.Dtos;
 using Debugaroo.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 namespace Debugaroo.Controllers;
 
