@@ -1,3 +1,4 @@
+[Logo](https://github.com/asaduakas/Debugaroo/blob/4733a5ff2fe6abe60e78af0b16ce67fd37796cb8/Debugaroo/logo.png)
 # Debugaroo
 A bug tracker ticketing system for development teams.
 
