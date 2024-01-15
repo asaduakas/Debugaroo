@@ -1,14 +1,22 @@
 using System.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Debugaroo.Data;
 using Debugaroo.Dtos;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Debugaroo.Controllers
 {
+    [Authorize]
+    [ApiController]
+    [Route("[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly DataContextDapper _dapper;
@@ -19,6 +27,7 @@ namespace Debugaroo.Controllers
             _config = config;
         }
 
+        [AllowAnonymous]
         [HttpPost("Register")]
         public IActionResult Register(AccountForRegistrationDto accountForRegistration)
         {
@@ -35,16 +44,7 @@ namespace Debugaroo.Controllers
                         rng.GetNonZeroBytes(passwordSalt);
                     }
 
-                    string passwordSaltPlusKey = _config.GetSection("AppSettings:PasswordKey").Value
-                        + Convert.ToBase64String(passwordSalt);
-
-                    byte[] passwordHash = KeyDerivation.Pbkdf2(
-                        password: accountForRegistration.Password,
-                        salt: Encoding.ASCII.GetBytes(passwordSaltPlusKey),
-                        prf: KeyDerivationPrf.HMACSHA256,
-                        iterationCount: 1000000,
-                        numBytesRequested: 256/8
-                    );
+                    byte[] passwordHash = GetPasswordHash(accountForRegistration.Password, passwordSalt);
 
                     string sqlAddAuth = @"
                         INSERT INTO UserData.Auth ([Email],
@@ -63,7 +63,24 @@ namespace Debugaroo.Controllers
 
                     if(_dapper.ExecuteSqlWithParameters(sqlAddAuth, sqlParameters))
                     {
-                        return Ok();
+                         string sqlAddUser = @"
+                            INSERT INTO UserData.Account(
+                                [Username],
+                                [Email],
+                                [FirstName],
+                                [LastName]
+                            ) VALUES (" +
+                                "'" + accountForRegistration.Username + 
+                                "', '" + accountForRegistration.Email +
+                                "', '" + accountForRegistration.FirstName + 
+                                "', '" + accountForRegistration.LastName +  
+                            "')";
+                            if(_dapper.ExecuteSql(sqlAddUser))
+                            {
+                                return Ok();
+                            }
+                            Console.WriteLine(sqlAddUser);
+                            throw new Exception("Failed to add user.");
                     }
                     throw new Exception("Failed to register user.");
                 }
@@ -72,10 +89,90 @@ namespace Debugaroo.Controllers
             throw new Exception("Passwords do not match!");
         }
 
+        [AllowAnonymous]
         [HttpPost("Login")]
         public IActionResult Login(AccountForLoginDto accountForLogin)
         {
-            return Ok();
+            string sqlForHashAndSalt = @"SELECT
+                [PasswordHash],
+                [PasswordSalt] FROM UserData.Auth WHERE Email = '" +
+                accountForLogin.Email + "'";
+            AccountForLoginConfirmationDto accountForConfirmation = _dapper.LoadDataSingle<AccountForLoginConfirmationDto>(sqlForHashAndSalt);
+            
+            byte[] passwordHash = GetPasswordHash(accountForLogin.Password, accountForConfirmation.PasswordSalt);
+
+            for(int i = 0; i < passwordHash.Length; i++){
+                if(passwordHash[i] != accountForConfirmation.PasswordHash[i]){
+                    return StatusCode(401, "Incorrect Password!");
+                }
+            } 
+
+            string accoundIdSql = @"
+                SELECT AccountId FROM UserData.Account WHERE Email= '" + 
+                accountForLogin.Email + "'";
+
+            int accountId = _dapper.LoadDataSingle<int>(accoundIdSql);
+
+            return Ok(new Dictionary<string, string> {
+                {"token", CreateToken(accountId)}
+            });
+        }
+
+        [HttpGet("RefreshToken")]
+        public string RefreshToken()
+        {
+            string accoundIdSql = @"
+                SELECT AccountId FROM UserData.Account WHERE AccountId = '" + 
+                User.FindFirst("accountId")?.Value + "'";
+
+            int accoundId = _dapper.LoadDataSingle<int>(accoundIdSql);
+
+            return CreateToken(accoundId);
+        }
+
+        private byte[] GetPasswordHash(string password, byte[] passwordSalt)
+        {
+            string passwordSaltPlusKey = _config.GetSection("AppSettings:PasswordKey").Value
+                + Convert.ToBase64String(passwordSalt);
+
+            return KeyDerivation.Pbkdf2(
+                password: password,
+                salt: Encoding.ASCII.GetBytes(passwordSaltPlusKey),
+                prf: KeyDerivationPrf.HMACSHA256,
+                iterationCount: 1000000,
+                numBytesRequested: 256/8
+            );
+        }
+
+        private string CreateToken(int accountId)
+        {
+            Claim[] claims = new Claim[] {
+                new Claim("accountId", accountId.ToString())
+            };
+
+            SymmetricSecurityKey tokenKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(
+                        _config.GetSection("Appsettings:TokenKey").Value
+                    )
+                );
+
+            SigningCredentials credentials = new SigningCredentials(
+                    tokenKey, 
+                    SecurityAlgorithms.HmacSha512Signature
+                );
+
+            SecurityTokenDescriptor descriptor = new SecurityTokenDescriptor()
+                {
+                    Subject = new ClaimsIdentity(claims),
+                    SigningCredentials = credentials,
+                    Expires = DateTime.Now.AddDays(1)
+                };
+
+            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+
+            SecurityToken token = tokenHandler.CreateToken(descriptor);
+
+            return tokenHandler.WriteToken(token);
         }
     }
 }

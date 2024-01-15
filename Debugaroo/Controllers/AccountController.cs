@@ -28,6 +28,8 @@ public class AccountController : ControllerBase
             SELECT [AccountId],
                 [Username],
                 [Email],
+                [FirstName],
+                [LastName],
                 [IsAdmin],
                 [IsProjectManager],
                 [IsTeamLeader] 
@@ -43,6 +45,8 @@ public class AccountController : ControllerBase
             SELECT [AccountId],
                    [Usename],
                    [Email],
+                   [FirstName],
+                   [LastName],
                    [IsAdmin],
                    [IsProjectManager],
                    [IsTeamLeader] 
@@ -59,6 +63,8 @@ public class AccountController : ControllerBase
         UPDATE UserData.Account
             SET [Username] = '" + account.Username + 
                 "',[Email] = '" + account.Email + 
+                "',[FirstName] = '" + account.FirstName + 
+                "',[LastName] = '" + account.LastName + 
                 "',[IsAdmin] = '" + account.IsAdmin +
                 "',[IsProjectManager] = '" + account.IsProjectManager +
                 "',[IsTeamLeader] = '" + account.IsTeamLeader +
@@ -80,12 +86,16 @@ public class AccountController : ControllerBase
             INSERT INTO UserData.Account(
                 [Username],
                 [Email],
+                [FirstName],
+                [LastName],
                 [IsAdmin],
                 [IsProjectManager],
                 [IsTeamLeader]
             ) VALUES (" +
                 "'" + account.Username + 
-                "', '" + account.Email + 
+                "', '" + account.Email +
+                "', '" + account.FirstName + 
+                "', '" + account.LastName +  
                 "', '" + account.IsAdmin +
                 "', '" + account.IsProjectManager +
                 "', '" + account.IsTeamLeader +
