@@ -5,9 +5,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Debugaroo.Data;
 using Debugaroo.Dtos;
+using Debugaroo.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
@@ -20,11 +20,12 @@ namespace Debugaroo.Controllers
     public class AuthController : ControllerBase
     {
         private readonly DataContextDapper _dapper;
-        private readonly IConfiguration _config;
+        private readonly AuthHelper _authHelper;
+
         public AuthController(IConfiguration config)
         {
             _dapper = new DataContextDapper(config);
-            _config = config;
+            _authHelper = new AuthHelper(config);
         }
 
         [AllowAnonymous]
@@ -44,7 +45,7 @@ namespace Debugaroo.Controllers
                         rng.GetNonZeroBytes(passwordSalt);
                     }
 
-                    byte[] passwordHash = GetPasswordHash(accountForRegistration.Password, passwordSalt);
+                    byte[] passwordHash = _authHelper.GetPasswordHash(accountForRegistration.Password, passwordSalt);
 
                     string sqlAddAuth = @"
                         INSERT INTO UserData.Auth ([Email],
@@ -99,7 +100,7 @@ namespace Debugaroo.Controllers
                 accountForLogin.Email + "'";
             AccountForLoginConfirmationDto accountForConfirmation = _dapper.LoadDataSingle<AccountForLoginConfirmationDto>(sqlForHashAndSalt);
             
-            byte[] passwordHash = GetPasswordHash(accountForLogin.Password, accountForConfirmation.PasswordSalt);
+            byte[] passwordHash = _authHelper.GetPasswordHash(accountForLogin.Password, accountForConfirmation.PasswordSalt);
 
             for(int i = 0; i < passwordHash.Length; i++){
                 if(passwordHash[i] != accountForConfirmation.PasswordHash[i]){
@@ -114,7 +115,7 @@ namespace Debugaroo.Controllers
             int accountId = _dapper.LoadDataSingle<int>(accoundIdSql);
 
             return Ok(new Dictionary<string, string> {
-                {"token", CreateToken(accountId)}
+                {"token", _authHelper.CreateToken(accountId)}
             });
         }
 
@@ -127,52 +128,8 @@ namespace Debugaroo.Controllers
 
             int accoundId = _dapper.LoadDataSingle<int>(accoundIdSql);
 
-            return CreateToken(accoundId);
+            return _authHelper.CreateToken(accoundId);
         }
 
-        private byte[] GetPasswordHash(string password, byte[] passwordSalt)
-        {
-            string passwordSaltPlusKey = _config.GetSection("AppSettings:PasswordKey").Value
-                + Convert.ToBase64String(passwordSalt);
-
-            return KeyDerivation.Pbkdf2(
-                password: password,
-                salt: Encoding.ASCII.GetBytes(passwordSaltPlusKey),
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: 1000000,
-                numBytesRequested: 256/8
-            );
-        }
-
-        private string CreateToken(int accountId)
-        {
-            Claim[] claims = new Claim[] {
-                new Claim("accountId", accountId.ToString())
-            };
-
-            SymmetricSecurityKey tokenKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(
-                        _config.GetSection("Appsettings:TokenKey").Value
-                    )
-                );
-
-            SigningCredentials credentials = new SigningCredentials(
-                    tokenKey, 
-                    SecurityAlgorithms.HmacSha512Signature
-                );
-
-            SecurityTokenDescriptor descriptor = new SecurityTokenDescriptor()
-                {
-                    Subject = new ClaimsIdentity(claims),
-                    SigningCredentials = credentials,
-                    Expires = DateTime.Now.AddDays(1)
-                };
-
-            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
-
-            SecurityToken token = tokenHandler.CreateToken(descriptor);
-
-            return tokenHandler.WriteToken(token);
-        }
     }
 }
