@@ -17,109 +17,68 @@ namespace Debugaroo.Controllers
             _dapper = new DataContextDapper(config);
         }
 
-        [HttpGet("Posts")]
-        public IEnumerable<Post> GetPosts()
+        [HttpGet("Posts/{postId}/{accountId}/{searchParam}")]
+        public IEnumerable<Post> GetPosts(int postId = 0, int accountId = 0, string searchParam = "None")
         {
-            string sql = @"SELECT [PostId],
-                    [AccountId],
-                    [PostTitle],
-                    [PostContent],
-                    [PostCreated],
-                    [PostUpdated] 
-                FROM UserData.Posts";
+            string sql = @"EXEC Procedures.spPost_Get";
+            string parameters = "";
+            
+            if(postId != 0)
+            {
+                parameters += ", @PostId=" + postId.ToString();
+            }
+            if(accountId != 0)
+            {
+                parameters += ", @AccountId=" + accountId.ToString();
+            }
+            if(searchParam.ToLower() != "none")
+            {
+                parameters += "@SearchValue='" + searchParam + "'";
+            }
+
+            if(parameters.Length > 0){
+                sql += parameters.Substring(1);
+            }
+
             return _dapper.LoadData<Post>(sql);
         }
 
-        [HttpGet("PostSingle/{postId}")]
-        public Post GetPostSingle(int postId)
-        {
-            string sql = @"SELECT [PostId],
-                    [AccountId],
-                    [PostTitle],
-                    [PostContent],
-                    [PostCreated],
-                    [PostUpdated] 
-                FROM UserData.Posts
-                    WHERE PostId = " + postId.ToString();
-
-            return _dapper.LoadDataSingle<Post>(sql);
-        }
-
-        [HttpGet("PostsByUser/{accountId}")]
-        public IEnumerable<Post> GetPostsByUser(int accountId)
-        {
-            string sql = @"SELECT [PostId],
-                    [AccountId],
-                    [PostTitle],
-                    [PostContent],
-                    [PostCreated],
-                    [PostUpdated] 
-                FROM UserData.Posts
-                    WHERE AccountId = " + accountId.ToString();
-                    
-            return _dapper.LoadData<Post>(sql);
-        }
 
         [HttpGet("MyPosts")]
         public IEnumerable<Post> GetMyPosts(int accountId)
         {
-            string sql = @"SELECT [PostId],
-                    [AccountId],
-                    [PostTitle],
-                    [PostContent],
-                    [PostCreated],
-                    [PostUpdated] 
-                FROM UserData.Posts
-                    WHERE AccountId = " + User.FindFirst("accountId")?.Value;
+            string sql = @"EXEC Procedures.spPost_Get @AccountId = " + 
+                User.FindFirst("accountId")?.Value;
                     
             return _dapper.LoadData<Post>(sql);
         }
 
-        [HttpPost("Post")]
-        public IActionResult AddPost(PostToAddDto postToAddDto)
+        [HttpPut("UpsertPost")]
+        public IActionResult UpsertPost(Post postToUpsert)
         {
-            string sql = @"
-            INSERT INTO UserData.Posts (
-                [AccountId],
-                [PostTitle],
-                [PostContent],
-                [PostCreated],
-                [PostUpdated]) VALUES (" + User.FindFirst("accountId")?.Value
-                + ",'" + postToAddDto.PostTitle
-                + "','" + postToAddDto.PostContent
-                + "', GETDATE(), GETDATE() )";
+            string sql = @"EXEC Procedures.spPost_Upsert
+                @AccountId =" + User.FindFirst("accountId")?.Value +
+                ", @PostTitle = '" + postToUpsert.PostTitle +
+                "', @PostContent ='" + postToUpsert.PostContent + "'";
 
+            if(postToUpsert.PostId > 0){
+                sql += ", @PostId = " + postToUpsert.PostId;
+            }
+
+            Console.WriteLine(sql);
             if(_dapper.ExecuteSql(sql))
             {
                 return Ok();
             }
-            throw new Exception("Failed to create new post!");
-        }
-
-        [HttpPut("Post")]
-        public IActionResult EditPost(PostToEditDto postToEditDto)
-        {
-            string sql = @"
-            UPDATE UserData.Posts 
-                SET PostContent = '" +  postToEditDto.PostContent 
-                + "', PostTitle = '" + postToEditDto.PostTitle +
-                @"', PostUpdated = GETDATE()
-                    WHERE PostId = " + postToEditDto.PostId.ToString() +
-                    "AND AccountId = " + User.FindFirst("accountId")?.Value;
-
-            if(_dapper.ExecuteSql(sql))
-            {
-                return Ok();
-            }
-            throw new Exception("Failed to edit post!");
+            throw new Exception("Failed to upsert post!");
         }
 
         [HttpDelete("Post/{postId}")]
         public IActionResult DeletePost(int postId)
         {
-            string sql = @"DELETE FROM UserData.Posts 
-                WHERE PostId = " + postId.ToString() + 
-                "AND AccountId = " + User.FindFirst("accountId")?.Value;;
+            string sql = @"EXEC Procedures.spPost_Delete @PostId =" + 
+                postId.ToString() + 
+                ", @AccountId = " + User.FindFirst("accountId")?.Value;;
 
             if(_dapper.ExecuteSql(sql))
             {
@@ -128,20 +87,5 @@ namespace Debugaroo.Controllers
             throw new Exception("Failed to delete post!");
         }
 
-        [HttpGet("PostsBySearch/{searchParam}")]
-        public IEnumerable<Post> PostsBySearch(string searchParam)
-        {
-            string sql = @"SELECT [PostId],
-                    [AccountId],
-                    [PostTitle],
-                    [PostContent],
-                    [PostCreated],
-                    [PostUpdated] 
-                FROM UserData.Posts
-                    WHERE PostTitle LIKE '%" + searchParam + @"%'
-                    OR PostContent LIKE '%" + searchParam + "%'";
-                    
-            return _dapper.LoadData<Post>(sql);
-        }
     }
 }

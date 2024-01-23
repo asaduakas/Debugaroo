@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Dapper;
 using Debugaroo.Data;
 using Debugaroo.Dtos;
 using Debugaroo.Helpers;
@@ -36,46 +37,27 @@ namespace Debugaroo.Controllers
             {
                 string sqlCheckUserExists = "SELECT Email FROM UserData.Auth WHERE Email = '" 
                     + accountForRegistration.Email + "'";
+
                 IEnumerable<string> existingAccounts = _dapper.LoadData<string>(sqlCheckUserExists);
                 if(existingAccounts.Count() == 0)
                 {
-                    byte[] passwordSalt = new byte[128/8];
-                    using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
-                    {
-                        rng.GetNonZeroBytes(passwordSalt);
-                    }
+                    AccountForLoginDto accountForSetPassword = new AccountForLoginDto(){
+                        Email = accountForRegistration.Email,
+                        Password = accountForRegistration.Password
+                    };
 
-                    byte[] passwordHash = _authHelper.GetPasswordHash(accountForRegistration.Password, passwordSalt);
-
-                    string sqlAddAuth = @"
-                        INSERT INTO UserData.Auth ([Email],
-                        [PasswordHash],
-                        [PasswordSalt]) VALUES ('" + accountForRegistration.Email + 
-                        "', @PasswordHash, @PasswordSalt)";
-                    List<SqlParameter> sqlParameters = new List<SqlParameter>();
-
-                    SqlParameter passwordSaltParameter =  new SqlParameter("@PasswordSalt", SqlDbType.VarBinary);
-                    passwordSaltParameter.Value = passwordSalt;
-                    SqlParameter passwordHashParameter =  new SqlParameter("@PasswordHash", SqlDbType.VarBinary);
-                    passwordHashParameter.Value = passwordHash;
-
-                    sqlParameters.Add(passwordSaltParameter);
-                    sqlParameters.Add(passwordHashParameter);
-
-                    if(_dapper.ExecuteSqlWithParameters(sqlAddAuth, sqlParameters))
+                    if(_authHelper.SetPassword(accountForSetPassword))
                     {
                          string sqlAddUser = @"
-                            INSERT INTO UserData.Account(
-                                [Username],
-                                [Email],
-                                [FirstName],
-                                [LastName]
-                            ) VALUES (" +
-                                "'" + accountForRegistration.Username + 
-                                "', '" + accountForRegistration.Email +
-                                "', '" + accountForRegistration.FirstName + 
-                                "', '" + accountForRegistration.LastName +  
-                            "')";
+                            EXEC Procedures.spUser_Upsert
+                            @Username = '" + accountForRegistration.Username + 
+                            "', @FirstName = '" + accountForRegistration.FirstName + 
+                            "', @LastName = '" + accountForRegistration.LastName + 
+                            "', @Email = '" + accountForRegistration.Email + 
+                            "', @IsAdmin = '" + accountForRegistration.IsAdmin +
+                            "', @IsProjectManager = '" + accountForRegistration.IsProjectManager +
+                            "', @IsTeamLeader = '" + accountForRegistration.IsTeamLeader + "'";
+
                             if(_dapper.ExecuteSql(sqlAddUser))
                             {
                                 return Ok();
@@ -90,15 +72,29 @@ namespace Debugaroo.Controllers
             throw new Exception("Passwords do not match!");
         }
 
+        [HttpPut("ResetPassword")]
+        public IActionResult ResetPassword(AccountForLoginDto accountForSetPassword)
+        {
+             if(_authHelper.SetPassword(accountForSetPassword))
+             {
+                return Ok();
+             }
+             throw new Exception("Failed to update password!");
+        }
+
         [AllowAnonymous]
         [HttpPost("Login")]
         public IActionResult Login(AccountForLoginDto accountForLogin)
         {
-            string sqlForHashAndSalt = @"SELECT
-                [PasswordHash],
-                [PasswordSalt] FROM UserData.Auth WHERE Email = '" +
-                accountForLogin.Email + "'";
-            AccountForLoginConfirmationDto accountForConfirmation = _dapper.LoadDataSingle<AccountForLoginConfirmationDto>(sqlForHashAndSalt);
+            string sqlForHashAndSalt = @"EXEC Procedures.spLoginConfirmation_Get
+                 @Email = @EmailParam";
+
+            DynamicParameters sqlParameters = new DynamicParameters();
+
+            sqlParameters.Add("@EmailParam", accountForLogin.Email, DbType.String);
+
+            AccountForLoginConfirmationDto accountForConfirmation = _dapper
+                .LoadDataSingleWithParameters<AccountForLoginConfirmationDto>(sqlForHashAndSalt, sqlParameters);
             
             byte[] passwordHash = _authHelper.GetPasswordHash(accountForLogin.Password, accountForConfirmation.PasswordSalt);
 
@@ -108,11 +104,11 @@ namespace Debugaroo.Controllers
                 }
             } 
 
-            string accoundIdSql = @"
+            string accountIdSql = @"
                 SELECT AccountId FROM UserData.Account WHERE Email= '" + 
                 accountForLogin.Email + "'";
 
-            int accountId = _dapper.LoadDataSingle<int>(accoundIdSql);
+            int accountId = _dapper.LoadDataSingle<int>(accountIdSql);
 
             return Ok(new Dictionary<string, string> {
                 {"token", _authHelper.CreateToken(accountId)}
