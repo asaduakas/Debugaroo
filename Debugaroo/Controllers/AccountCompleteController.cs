@@ -1,8 +1,8 @@
-﻿using Debugaroo.Data;
-using Debugaroo.Dtos;
+﻿using System.Data;
+using Dapper;
+using Debugaroo.Data;
 using Debugaroo.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Identity.Client;
 
 namespace Debugaroo.Controllers;
 
@@ -26,30 +26,43 @@ public class AccountCompleteController : ControllerBase
     public IEnumerable<Account> GetAccounts(int accountId)
     {
         string sql = "EXEC Procedures.spUsers_Get";
+        DynamicParameters sqlParameters = new DynamicParameters();
+
         if(accountId != 0){
-            sql += " @AccountId=" + accountId.ToString();
+            sql += " @AccountId=@AccountIdParameter";
+            sqlParameters.Add("@AccountIdParameter", accountId, DbType.Int32);
         }
-        IEnumerable<Account> accounts = _dapper.LoadData<Account>(sql);
+        IEnumerable<Account> accounts = _dapper.LoadDataWithParameters<Account>(sql,sqlParameters);
         return accounts;   
     }
 
     [HttpPut("UpsertAccount")]
     public IActionResult UpsertAccount(Account account)
     {
-        string sql = @"
-        EXEC Procedures.spUser_Upsert
-           @Username = '" + account.Username + 
-           "', @FirstName = '" + account.FirstName + 
-           "', @LastName = '" + account.LastName + 
-           "', @Email = '" + account.Email + 
-           "', @IsAdmin = '" + account.IsAdmin +
-           "', @IsProjectManager = '" + account.IsProjectManager +
-           "', @IsTeamLeader = '" + account.IsTeamLeader +
-           "', @AccountId = " + account.AccountId;
+        string sql = @"EXEC Procedures.spUser_Upsert
+           @AccountId = @AccountIdParameter
+           @Username = @UsernameParameter,
+           @FirstName = @FirstNameParameter,
+           @LastName = @LastNameParameter, 
+           @Email = @EmailParameter,
+           @IsAdmin = @IsAdminParameter,
+           @IsProjectManager = @IsProjectManagerParameter,
+           @IsTeamLeader = @IsTeamLeaderParameter";
 
+        DynamicParameters sqlParameters = new();
+
+        sqlParameters.Add("@AccountIdParameter", account.AccountId, DbType.Int32);
+        sqlParameters.Add("@UsernameParameter", account.Username, DbType.String);
+        sqlParameters.Add("@FirstNameParameter", account.FirstName, DbType.String);
+        sqlParameters.Add("@LastNameParameter", account.LastName, DbType.String);
+        sqlParameters.Add("@EmailParameter", account.Email, DbType.String);
+        sqlParameters.Add("@IsAdminParameter", account.IsAdmin, DbType.Boolean);
+        sqlParameters.Add("@IsProjectManagerParameter", account.IsProjectManager, DbType.Boolean);
+        sqlParameters.Add("@IsTeamLeaderParameter", account.IsTeamLeader, DbType.Boolean);
+       
         Console.WriteLine(sql);
 
-        if (_dapper.ExecuteSql(sql))
+        if (_dapper.ExecuteSqlWithParameters(sql, sqlParameters))
         {
             return Ok();
         }
@@ -60,9 +73,12 @@ public class AccountCompleteController : ControllerBase
     public IActionResult DeleteAccount(int accountId)
     {
         string sql = @"EXEC Procedures.spUser_Delete 
-            @AccountId = " +  accountId.ToString();
+            @AccountId = @AccountIdParameter";
 
-        if (_dapper.ExecuteSql(sql))
+        DynamicParameters sqlParameters = new DynamicParameters();
+        sqlParameters.Add("@AccountIdParameter", accountId, DbType.Int32);
+
+        if (_dapper.ExecuteSqlWithParameters(sql,sqlParameters))
         {
             return Ok();
         }

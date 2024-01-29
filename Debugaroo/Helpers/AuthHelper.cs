@@ -7,7 +7,6 @@ using Dapper;
 using Debugaroo.Data;
 using Debugaroo.Dtos;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Debugaroo.Helpers
