@@ -1,3 +1,5 @@
+using System.Data;
+using Dapper;
 using Debugaroo.Data;
 using Debugaroo.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -20,52 +22,62 @@ namespace Debugaroo.Controllers
         public IEnumerable<Post> GetPosts(int postId = 0, int accountId = 0, string searchParam = "None")
         {
             string sql = @"EXEC Procedures.spPost_Get";
-            string parameters = "";
+            string stringParams = "";
+            DynamicParameters sqlParams = new();
             
             if(postId != 0)
             {
-                parameters += ", @PostId=" + postId.ToString();
+                stringParams += ", @PostId=@PostIdParam";
+                sqlParams.Add("@PostIdParam", postId, DbType.Int32);
             }
             if(accountId != 0)
             {
-                parameters += ", @AccountId=" + accountId.ToString();
+                stringParams += ", @AccountId=@AccountIdParam";
+                sqlParams.Add("@AccountIdParam", accountId, DbType.Int32);
             }
             if(searchParam.ToLower() != "none")
             {
-                parameters += "@SearchValue='" + searchParam + "'";
+                stringParams += ", @SearchValue=@SearchParam";
+                sqlParams.Add("@SearchParam", searchParam, DbType.String);
             }
 
-            if(parameters.Length > 0){
-                sql += parameters.Substring(1);
+            if(stringParams.Length > 0){
+                sql += stringParams.Substring(1);
             }
 
-            return _dapper.LoadData<Post>(sql);
+            return _dapper.LoadDataWithParameters<Post>(sql,sqlParams);
         }
 
 
         [HttpGet("MyPosts")]
-        public IEnumerable<Post> GetMyPosts(int accountId)
+        public IEnumerable<Post> GetMyPosts()
         {
-            string sql = @"EXEC Procedures.spPost_Get @AccountId = " + 
-                User.FindFirst("accountId")?.Value;
-                    
-            return _dapper.LoadData<Post>(sql);
+            string sql = @"EXEC Procedures.spPost_Get @AccountId = @AccountIdParam";
+            DynamicParameters sqlParams = new();
+            sqlParams.Add("@AccountIdParam",User.FindFirst("accountId")?.Value, DbType.Int32);
+
+            return _dapper.LoadDataWithParameters<Post>(sql,sqlParams);
         }
 
         [HttpPut("UpsertPost")]
         public IActionResult UpsertPost(Post postToUpsert)
         {
             string sql = @"EXEC Procedures.spPost_Upsert
-                @AccountId =" + User.FindFirst("accountId")?.Value +
-                ", @PostTitle = '" + postToUpsert.PostTitle +
-                "', @PostContent ='" + postToUpsert.PostContent + "'";
+                @AccountId = @AccountIdParam
+                , @PostTitle = @PostTitleParam
+                , @PostContent = @PostContentParam";
+
+            DynamicParameters sqlParams = new();
+            sqlParams.Add("@AccountIdParam",User.FindFirst("accountId")?.Value, DbType.Int32);
+            sqlParams.Add("@PostTitleParam",postToUpsert.PostTitle,DbType.String);
+            sqlParams.Add("@PostContentParam",postToUpsert.PostContent, DbType.String);
 
             if(postToUpsert.PostId > 0){
-                sql += ", @PostId = " + postToUpsert.PostId;
+                sql += ", @PostId = @PostIdParam";
+                sqlParams.Add("@PostIdParam",postToUpsert.PostId, DbType.Int32);
             }
 
-            Console.WriteLine(sql);
-            if(_dapper.ExecuteSql(sql))
+            if(_dapper.ExecuteSqlWithParameters(sql,sqlParams))
             {
                 return Ok();
             }
@@ -75,11 +87,15 @@ namespace Debugaroo.Controllers
         [HttpDelete("Post/{postId}")]
         public IActionResult DeletePost(int postId)
         {
-            string sql = @"EXEC Procedures.spPost_Delete @PostId =" + 
-                postId.ToString() + 
-                ", @AccountId = " + User.FindFirst("accountId")?.Value;;
+            string sql = @"EXEC Procedures.spPost_Delete 
+                @PostId = @PostIdParam, 
+                @AccountId = @AccountIdParam";
+                 
+            DynamicParameters sqlParams = new();
+            sqlParams.Add("@PostIdParam",postId.ToString(),DbType.Int32);
+            sqlParams.Add("@AccountIdParam",User.FindFirst("accountId")?.Value,DbType.Int32);
 
-            if(_dapper.ExecuteSql(sql))
+            if(_dapper.ExecuteSqlWithParameters(sql,sqlParams))
             {
                 return Ok();
             }

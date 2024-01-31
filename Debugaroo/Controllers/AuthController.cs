@@ -1,8 +1,10 @@
 using System.Data;
+using AutoMapper;
 using Dapper;
 using Debugaroo.Data;
 using Debugaroo.Dtos;
 using Debugaroo.Helpers;
+using Debugaroo.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,16 +12,23 @@ namespace Debugaroo.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("[controller]")]
+    [Route("[Auth]")]
     public class AuthController : ControllerBase
     {
         private readonly DataContextDapper _dapper;
         private readonly AuthHelper _authHelper;
+        private readonly ReusableSql _reusableSql;
+        private readonly IMapper _mapper;
 
         public AuthController(IConfiguration config)
         {
             _dapper = new DataContextDapper(config);
             _authHelper = new AuthHelper(config);
+            _reusableSql = new ReusableSql(config);
+            _mapper = new Mapper(new MapperConfiguration(cfg => 
+            {
+                cfg.CreateMap<AccountForRegistrationDto, Account>();
+            }));
         }
 
         [AllowAnonymous]
@@ -41,21 +50,13 @@ namespace Debugaroo.Controllers
 
                     if(_authHelper.SetPassword(accountForSetPassword))
                     {
-                         string sqlAddUser = @"
-                            EXEC Procedures.spUser_Upsert
-                            @Username = '" + accountForRegistration.Username + 
-                            "', @FirstName = '" + accountForRegistration.FirstName + 
-                            "', @LastName = '" + accountForRegistration.LastName + 
-                            "', @Email = '" + accountForRegistration.Email + 
-                            "', @IsAdmin = '" + accountForRegistration.IsAdmin +
-                            "', @IsProjectManager = '" + accountForRegistration.IsProjectManager +
-                            "', @IsTeamLeader = '" + accountForRegistration.IsTeamLeader + "'";
+                        Account account = _mapper.Map<Account>(accountForRegistration);
 
-                            if(_dapper.ExecuteSql(sqlAddUser))
+                            if(_reusableSql.UpsertAccount(account))
                             {
                                 return Ok();
                             }
-                            Console.WriteLine(sqlAddUser);
+                            
                             throw new Exception("Failed to add user.");
                     }
                     throw new Exception("Failed to register user.");

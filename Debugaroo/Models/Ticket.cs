@@ -1,6 +1,6 @@
 namespace Debugaroo.Models
 {
-    public partial class Tickets
+    public partial class Ticket
     {
         public int TicketId { get; set; }
         public string Title { get; set; } = "";

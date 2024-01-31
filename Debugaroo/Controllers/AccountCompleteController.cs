@@ -1,19 +1,24 @@
 ﻿using System.Data;
 using Dapper;
 using Debugaroo.Data;
+using Debugaroo.Helpers;
 using Debugaroo.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Debugaroo.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("[controller]")]
 public class AccountCompleteController : ControllerBase
 {
-    DataContextDapper _dapper;
+    private readonly DataContextDapper _dapper;
+    private readonly ReusableSql _reusableSql;
     public AccountCompleteController(IConfiguration config)
     {
         _dapper = new DataContextDapper(config);
+        _reusableSql = new ReusableSql(config);
     }
 
     [HttpGet("TestConnection")]
@@ -39,30 +44,7 @@ public class AccountCompleteController : ControllerBase
     [HttpPut("UpsertAccount")]
     public IActionResult UpsertAccount(Account account)
     {
-        string sql = @"EXEC Procedures.spUser_Upsert
-           @AccountId = @AccountIdParameter
-           @Username = @UsernameParameter,
-           @FirstName = @FirstNameParameter,
-           @LastName = @LastNameParameter, 
-           @Email = @EmailParameter,
-           @IsAdmin = @IsAdminParameter,
-           @IsProjectManager = @IsProjectManagerParameter,
-           @IsTeamLeader = @IsTeamLeaderParameter";
-
-        DynamicParameters sqlParameters = new();
-
-        sqlParameters.Add("@AccountIdParameter", account.AccountId, DbType.Int32);
-        sqlParameters.Add("@UsernameParameter", account.Username, DbType.String);
-        sqlParameters.Add("@FirstNameParameter", account.FirstName, DbType.String);
-        sqlParameters.Add("@LastNameParameter", account.LastName, DbType.String);
-        sqlParameters.Add("@EmailParameter", account.Email, DbType.String);
-        sqlParameters.Add("@IsAdminParameter", account.IsAdmin, DbType.Boolean);
-        sqlParameters.Add("@IsProjectManagerParameter", account.IsProjectManager, DbType.Boolean);
-        sqlParameters.Add("@IsTeamLeaderParameter", account.IsTeamLeader, DbType.Boolean);
-       
-        Console.WriteLine(sql);
-
-        if (_dapper.ExecuteSqlWithParameters(sql, sqlParameters))
+        if (_reusableSql.UpsertAccount(account))
         {
             return Ok();
         }
