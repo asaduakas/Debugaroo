@@ -9,7 +9,7 @@ namespace Debugaroo.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("[Ticket]")]
+[Route("[controller]")]
 public class TicketController : ControllerBase
 {
     private readonly DataContextDapper _dapper;

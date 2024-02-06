@@ -9,7 +9,7 @@ namespace Debugaroo.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("Post")]
+    [Route("controller")]
     public class PostController : ControllerBase
     {
         private readonly DataContextDapper _dapper;
