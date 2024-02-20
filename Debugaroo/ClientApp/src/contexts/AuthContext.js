@@ -8,10 +8,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
         //TODO:Change env variable this for production
-        const response = await fetch('http://localhost:5001/Auth/Login', {
+        const response = await fetch('https://localhost:5001/Auth/Login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ Email: username, Password: password }),
         });
         if (response.ok) {
           const data = await response.json();

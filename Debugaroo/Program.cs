@@ -14,7 +14,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCors", (corsBuilder) =>
     {
-        corsBuilder.WithOrigins("http://localhost:44477")
+        corsBuilder.WithOrigins("https://localhost:44477")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -51,12 +51,14 @@ if (app.Environment.IsDevelopment())
 {
     app.UseCors("DevCors");
     app.UseSwagger();
-    app.UseSwaggerUI();   
+    app.UseSwaggerUI();
+    
 }
 else{
     app.UseCors("ProdCors");
-    app.UseHttpsRedirection();
 }
+
+app.UseHttpsRedirection();  
 
 app.UseStaticFiles();
 app.UseRouting();

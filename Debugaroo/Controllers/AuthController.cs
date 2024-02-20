@@ -78,7 +78,7 @@ namespace Debugaroo.Controllers
 
         [AllowAnonymous]
         [HttpPost("Login")]
-        public IActionResult Login(AccountForLoginDto accountForLogin)
+        public IActionResult Login([FromBody] AccountForLoginDto accountForLogin)
         {
             string sqlForHashAndSalt = @"EXEC Procedures.spLoginConfirmation_Get
                  @Email = @EmailParam";
