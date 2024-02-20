@@ -4,6 +4,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('token'));
 
   const login = async (username, password) => {
     try {
@@ -14,9 +15,10 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({ Email: username, Password: password }),
         });
         if (response.ok) {
-          const data = await response.json();
+          const responseWithTokenData = await response.json();
           // Handle successful login (e.g., update state, store token)
           setIsAuthenticated(true);
+          setAuthToken(responseWithTokenData.token);
         } else {
           // Handle errors or unsuccessful login attempts
           throw new Error('Login failed');
