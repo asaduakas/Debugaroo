@@ -2,8 +2,7 @@ import React, { Component } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
 import Admin from './layouts/Admin/Admin';
-import RTL from './layouts/RTL/RTL';
-import Login from './components/Login';
+import Login from './views/Login';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 

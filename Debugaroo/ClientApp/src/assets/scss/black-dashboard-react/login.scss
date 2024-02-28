@@ -4,11 +4,13 @@
     align-items: center; /* Center vertically */
     height: 100vh; /* Full height of the viewport */
     background-image: url('../../img/loginBackground.jpg');
+    flex-direction: column;
   }
   
   .centered-box {
     width: 500px; /* Example width */
     height: fit-content; /* Example height */
+    border-radius: 23px;
   }
 
   .centered{

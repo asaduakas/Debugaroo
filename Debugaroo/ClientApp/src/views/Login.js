@@ -7,8 +7,6 @@ import {
     Card,
     CardHeader,
     CardBody,
-    CardFooter,
-    CardText,
     FormGroup,
     Form,
     Input,
@@ -19,6 +17,7 @@ import {
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [loginError, setLoginError] = useState('')
     const auth = useAuth();
     const navigate = useNavigate();
   
@@ -26,10 +25,11 @@ const Login = () => {
         e.preventDefault();
         try{
             await auth.login(username, password);
+            setLoginError('');
             navigate('/admin/dashboard'); // Navigate on successful login
         } catch (error) {
             console.error('Login failed:', error);
-            // Handle login failure (e.g., display an error message)
+            setLoginError('Wrong username or password!');
         }
     };
   
@@ -77,6 +77,11 @@ const Login = () => {
                 </Form>
             </CardBody>
         </Card>
+        {loginError && <div class="alert-with-icon alert alert-danger alert-dismissible fade show" role="alert">
+                            <button type="button" class="close" aria-label="Close" onClick={()=>setLoginError('')}><span aria-hidden="true">
+                                ×</span></button><span class="tim-icons icon-bell-55" data-notify="icon">
+                                    </span><span data-notify="message">{loginError}</span>
+                        </div>}
     </div>
     );
 };
